@@ -1,0 +1,12 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/main ."
+  entrypoint = "./tmp/main"
+  include_ext = ["go", "yml"]
+  exclude_dir = ["tmp", "vendor"]
+  delay = 500
+
+[screen]
+  clear_on_rebuild = true

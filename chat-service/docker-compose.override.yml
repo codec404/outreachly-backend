@@ -1,0 +1,11 @@
+services:
+  chat-service:
+    container_name: chat-service
+    build:
+      target: dev
+    volumes:
+      - .:/app
+      - /app/tmp
+    environment:
+      APP_ENV: development
+    restart: "no"
