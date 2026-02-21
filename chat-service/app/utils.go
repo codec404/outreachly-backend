@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/joho/godotenv"
@@ -31,6 +32,15 @@ func readConfigFile(name, fileType, path string) error {
 
 func unmarshalConfigKey(key string, target interface{}) error {
 	return viper.UnmarshalKey(key, target)
+}
+
+func getEnvInt(key string, defaultVal int) int {
+	if v := getEnv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return defaultVal
 }
 
 func NewRootContext() (context.Context, context.CancelFunc) {

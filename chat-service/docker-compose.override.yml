@@ -1,4 +1,23 @@
 services:
+  postgres:
+    ports:
+      - "5432:5432"
+    restart: "no"
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4:latest
+    env_file:
+      - local.env
+    ports:
+      - "5050:80"
+    volumes:
+      - ./configs/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   chat-service:
     container_name: chat-service
     build:
@@ -8,4 +27,5 @@ services:
       - /app/tmp
     environment:
       APP_ENV: development
+      DB_HOST: postgres
     restart: "no"

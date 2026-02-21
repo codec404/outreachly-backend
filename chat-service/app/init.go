@@ -1,8 +1,12 @@
 package app
 
-import log "github.com/codec404/chat-service/pkg/logger"
+import (
+	"github.com/jackc/pgx/v5/pgxpool"
 
-func Init() (*Config, error) {
+	log "github.com/codec404/chat-service/pkg/logger"
+)
+
+func Init() (*Config, *pgxpool.Pool, error) {
 	log.InitLogger()
 
 	if !isProduction() {
@@ -11,12 +15,25 @@ func Init() (*Config, error) {
 
 	cfg, err := Load()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err := cfg.Validate(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return cfg, nil
+	if err := RunMigrations(cfg); err != nil {
+		return nil, nil, err
+	}
+
+	if err := SeedSuperAdmin(cfg); err != nil {
+		return nil, nil, err
+	}
+
+	db, err := OpenDB(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return cfg, db, nil
 }

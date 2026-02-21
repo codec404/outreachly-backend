@@ -27,4 +27,14 @@ const (
 	EnvDBName     = "DB_NAME"
 	EnvDBUser     = "DB_USER"
 	EnvDBPassword = "DB_PASSWORD"
+
+	// Super admin seed env var keys
+	EnvSuperAdminName     = "SUPER_ADMIN_NAME"
+	EnvSuperAdminEmail    = "SUPER_ADMIN_EMAIL"
+	EnvSuperAdminPassword = "SUPER_ADMIN_PASSWORD"
+
+	// JWT env var keys
+	EnvJWTSecret        = "JWT_SECRET"
+	EnvJWTAccessExpiry  = "JWT_ACCESS_EXPIRY_MINUTES"
+	EnvJWTRefreshExpiry = "JWT_REFRESH_EXPIRY_DAYS"
 )

@@ -7,20 +7,28 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	externalerror "github.com/codec404/chat-service/pkg/external_error"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/codec404/chat-service/pkg/errorhandler"
+	externalerror "github.com/codec404/chat-service/pkg/external_error"
 	log "github.com/codec404/chat-service/pkg/logger"
 	"github.com/codec404/chat-service/router"
 )
 
-func NewServer(cfg *Config) *http.Server {
+func NewServer(cfg *Config, db *pgxpool.Pool) *http.Server {
 	r := chi.NewRouter()
 
-	r.Use(middleware.RequestID)
+	r.Use(chimiddleware.RequestID)
+	r.Use(setTraceID) // bridge chi RequestID → logger context
 	r.Use(jsonRecoverer)
 
-	router.GetAllRoutes(r)
+	router.GetAllRoutes(r, router.Config{
+		DB:               db,
+		JWTSecret:        cfg.JWT.Secret,
+		AccessExpiryMin:  cfg.JWT.AccessExpiry,
+		RefreshExpiryDay: cfg.JWT.RefreshExpiry,
+	})
 
 	return &http.Server{
 		Addr:              fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
@@ -50,6 +58,16 @@ func StartServer(ctx context.Context, srv *http.Server) error {
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
 	}
+}
+
+// setTraceID copies chi's RequestID into the logger context so that all
+// log calls in downstream handlers automatically include the trace_id field.
+func setTraceID(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		traceID := chimiddleware.GetReqID(r.Context())
+		ctx := log.WithTraceID(r.Context(), traceID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 func jsonRecoverer(next http.Handler) http.Handler {

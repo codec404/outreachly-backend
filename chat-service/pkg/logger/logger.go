@@ -79,6 +79,12 @@ func WarnfWithContext(ctx context.Context, format string, args ...any) {
 	log.With(traceFields(ctx)...).Warnf(format, args...)
 }
 
+// TraceIDFromContext returns the trace ID stored in ctx, or an empty string.
+func TraceIDFromContext(ctx context.Context) string {
+	id, _ := ctx.Value(traceIDKey).(string)
+	return id
+}
+
 func traceFields(ctx context.Context) []any {
 	if traceID, ok := ctx.Value(traceIDKey).(string); ok && traceID != "" {
 		return []any{string(traceIDKey), traceID}

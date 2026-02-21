@@ -16,10 +16,11 @@ func main() {
 }
 
 func run() error {
-	cfg, err := app.Init()
+	cfg, db, err := app.Init()
 	if err != nil {
 		return err
 	}
+	defer db.Close()
 
 	ctx, cancel := app.NewRootContext()
 	defer cancel()
@@ -27,11 +28,8 @@ func run() error {
 	p := pool.New().WithErrors().WithContext(ctx)
 
 	p.Go(func(ctx context.Context) error {
-		return app.StartServer(ctx, app.NewServer(cfg))
+		return app.StartServer(ctx, app.NewServer(cfg, db))
 	})
-
-	// TODO: p.Go(func(ctx context.Context) error { return db.Connect(ctx, cfg.DB) })
-	// TODO: p.Go(func(ctx context.Context) error { return worker.Start(ctx) })
 
 	return p.Wait()
 }
