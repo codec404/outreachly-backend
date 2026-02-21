@@ -8,4 +8,5 @@ type Config struct {
 	JWTSecret        string
 	AccessExpiryMin  int
 	RefreshExpiryDay int
+	AuthRPM          int // rate limit: requests per minute per IP on auth endpoints
 }

@@ -6,8 +6,11 @@ const (
 	ConfigFileType = "yaml"
 	ConfigFilePath = "./configs"
 
-	// Viper keys
-	ViperKeyServer = "server"
+	// Viper keys (config.yml sections)
+	ViperKeyServer    = "server"
+	ViperKeyDB        = "db"
+	ViperKeyCORS      = "cors"
+	ViperKeyRateLimit = "rate_limit"
 
 	// Environment
 	AppEnvKey        = "APP_ENV"

@@ -7,5 +7,6 @@ import (
 )
 
 func registerHealthRoutes(r chi.Router, h *health.Handler) {
-	r.Get("/health", h.Ping)
+	r.Get("/health/live", h.Live)
+	r.Get("/health/ready", h.Ready)
 }

@@ -3,18 +3,33 @@ package app
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// OpenDB creates a pgxpool connection and verifies connectivity with a ping.
+// OpenDB creates a pgxpool connection with the settings from config.yml and
+// verifies connectivity with a ping.
 func OpenDB(cfg *Config) (*pgxpool.Pool, error) {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.Name)
 
-	pool, err := pgxpool.New(context.Background(), dsn)
+	poolCfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("pgxpool.New: %w", err)
+		return nil, fmt.Errorf("pgxpool.ParseConfig: %w", err)
+	}
+
+	p := cfg.DB.Pool
+	poolCfg.MaxConns = p.MaxConns
+	poolCfg.MinConns = p.MinConns
+	poolCfg.MaxConnIdleTime = time.Duration(p.MaxConnIdleMinutes) * time.Minute
+	poolCfg.MaxConnLifetime = time.Duration(p.MaxConnLifetimeHours) * time.Hour
+	poolCfg.HealthCheckPeriod = 30 * time.Second
+	poolCfg.ConnConfig.ConnectTimeout = 5 * time.Second
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolCfg)
+	if err != nil {
+		return nil, fmt.Errorf("pgxpool.NewWithConfig: %w", err)
 	}
 
 	if err := pool.Ping(context.Background()); err != nil {

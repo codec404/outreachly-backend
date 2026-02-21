@@ -59,7 +59,8 @@ chat-service/
 ├── dto/               # request / response shapes
 │   └── auth/
 ├── middleware/        # Authenticate, RequireRole, context helpers
-├── migrations/        # embedded SQL files (*.up.sql / *.down.sql)
+├── db/
+│   └── migrations/    # embedded SQL files (*.up.sql / *.down.sql)
 ├── pkg/
 │   ├── logger/        # Zap wrapper with trace ID support
 │   ├── render/        # JSON response writer (sets os-trace-id header)

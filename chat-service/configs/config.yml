@@ -1,3 +1,18 @@
 server:
   host: "0.0.0.0"
   port: "8080"
+  max_request_body_bytes: 1048576  # 1 MiB
+
+db:
+  pool:
+    max_conns: 25
+    min_conns: 2
+    max_conn_idle_minutes: 30
+    max_conn_lifetime_hours: 1
+
+cors:
+  allowed_origins:
+    - "http://localhost:3000"
+
+rate_limit:
+  auth_rpm: 10  # requests per minute per IP on auth endpoints

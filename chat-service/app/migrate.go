@@ -10,7 +10,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/lib/pq"
 
-	"github.com/codec404/chat-service/migrations"
+	"github.com/codec404/chat-service/db/migrations"
 	log "github.com/codec404/chat-service/pkg/logger"
 )
 

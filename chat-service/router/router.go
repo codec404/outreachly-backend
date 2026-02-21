@@ -24,8 +24,8 @@ func GetAllRoutes(r chi.Router, cfg Config) {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public routes — no authentication required.
-		registerHealthRoutes(r, health.NewHandler())
-		registerAuthRoutes(r, authctl.NewHandler(aSvc))
+		registerHealthRoutes(r, health.NewHandler(cfg.DB))
+		registerAuthRoutes(r, authctl.NewHandler(aSvc), cfg.AuthRPM)
 
 		// Authenticated routes — JWT required for everything below.
 		r.Group(func(r chi.Router) {

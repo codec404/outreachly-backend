@@ -8,8 +8,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/codec404/chat-service/middleware"
 	"github.com/codec404/chat-service/pkg/errorhandler"
 	externalerror "github.com/codec404/chat-service/pkg/external_error"
 	log "github.com/codec404/chat-service/pkg/logger"
@@ -19,15 +21,20 @@ import (
 func NewServer(cfg *Config, db *pgxpool.Pool) *http.Server {
 	r := chi.NewRouter()
 
-	r.Use(chimiddleware.RequestID)
-	r.Use(setTraceID) // bridge chi RequestID → logger context
-	r.Use(jsonRecoverer)
+	// ── Core middleware (order matters) ──────────────────────────────────────
+	r.Use(chimiddleware.RequestID)                             // generate request ID
+	r.Use(setTraceID)                                          // bridge request ID → logger context
+	r.Use(cors.Handler(buildCORSOptions(cfg.CORS)))            // CORS
+	r.Use(bodyLimit(cfg.Server.MaxRequestBodyBytes))                     // body size guard
+	r.Use(middleware.AccessLog)                                // structured access log
+	r.Use(jsonRecoverer)                                       // panic → 500
 
 	router.GetAllRoutes(r, router.Config{
 		DB:               db,
 		JWTSecret:        cfg.JWT.Secret,
 		AccessExpiryMin:  cfg.JWT.AccessExpiry,
 		RefreshExpiryDay: cfg.JWT.RefreshExpiry,
+		AuthRPM:          cfg.RateLimit.AuthRPM,
 	})
 
 	return &http.Server{
@@ -37,6 +44,17 @@ func NewServer(cfg *Config, db *pgxpool.Pool) *http.Server {
 		WriteTimeout:      WriteTimeout * time.Second,
 		IdleTimeout:       IdleTimeout * time.Second,
 		ReadHeaderTimeout: ReadHeaderTimeout * time.Second,
+	}
+}
+
+func buildCORSOptions(cfg CORSConfig) cors.Options {
+	return cors.Options{
+		AllowedOrigins:   cfg.AllowedOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+		ExposedHeaders:   []string{"os-trace-id"},
+		AllowCredentials: false,
+		MaxAge:           300, // cache preflight for 5 minutes
 	}
 }
 
@@ -60,14 +78,23 @@ func StartServer(ctx context.Context, srv *http.Server) error {
 	}
 }
 
-// setTraceID copies chi's RequestID into the logger context so that all
-// log calls in downstream handlers automatically include the trace_id field.
+// setTraceID copies chi's RequestID into the logger context so every log call
+// downstream automatically includes the trace_id field.
 func setTraceID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		traceID := chimiddleware.GetReqID(r.Context())
 		ctx := log.WithTraceID(r.Context(), traceID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func bodyLimit(maxBytes int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func jsonRecoverer(next http.Handler) http.Handler {

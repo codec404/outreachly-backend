@@ -231,12 +231,12 @@ make migrate-status
 ---
 
 ### `make migrate-create NAME=<description>`
-Scaffold a new numbered migration pair (`*.up.sql` + `*.down.sql`) in `./migrations/`.
+Scaffold a new numbered migration pair (`*.up.sql` + `*.down.sql`) in `./db/migrations/`.
 
 ```bash
 make migrate-create NAME=add_index_to_email_events
-# creates: migrations/000015_add_index_to_email_events.up.sql
-#          migrations/000015_add_index_to_email_events.down.sql
+# creates: db/migrations/000015_add_index_to_email_events.up.sql
+#          db/migrations/000015_add_index_to_email_events.down.sql
 ```
 
 ---

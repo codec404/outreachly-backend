@@ -8,7 +8,7 @@ SHELL        := bash
 -include local.env
 export
 
-MIGRATIONS_DIR := ./migrations
+MIGRATIONS_DIR := ./db/migrations
 DB_DSN         := postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
 
 # ── Default ───────────────────────────────────────────────────────────────────

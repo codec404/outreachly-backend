@@ -1,13 +1,33 @@
 package health
 
-import "net/http"
+import (
+	"net/http"
 
-type Handler struct{}
+	"github.com/jackc/pgx/v5/pgxpool"
 
-func NewHandler() *Handler { return &Handler{} }
+	"github.com/codec404/chat-service/pkg/errorhandler"
+	externalerror "github.com/codec404/chat-service/pkg/external_error"
+	"github.com/codec404/chat-service/pkg/render"
+)
 
-func (h *Handler) Ping(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"ok"}`))
+type Handler struct {
+	db *pgxpool.Pool
+}
+
+func NewHandler(db *pgxpool.Pool) *Handler { return &Handler{db: db} }
+
+// Live is the liveness probe — confirms the process is running.
+// Never checks external dependencies.
+func (h *Handler) Live(w http.ResponseWriter, r *http.Request) {
+	render.JSONResponse(w, r, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// Ready is the readiness probe — confirms the service can serve traffic.
+// Returns 503 if the database is unreachable.
+func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
+	if err := h.db.Ping(r.Context()); err != nil {
+		errorhandler.Respond(w, r, externalerror.New(http.StatusServiceUnavailable, "database unavailable"))
+		return
+	}
+	render.JSONResponse(w, r, http.StatusOK, map[string]string{"status": "ready"})
 }
