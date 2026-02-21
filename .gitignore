@@ -1,0 +1,73 @@
+# ============================================================
+# Environment & secrets — NEVER commit real credentials
+# ============================================================
+*.env
+.env
+!*.env.example   # keep example templates
+local.env
+*.key
+*.pem
+*.cert
+*.p12
+secrets.*
+
+# ============================================================
+# Go
+# ============================================================
+# Compiled binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test & coverage output
+*.test
+*.out
+coverage.html
+coverage.txt
+
+# Go workspace (keep go.work.sum out, go.work is optional)
+go.work.sum
+
+# Dependency vendor directory (if not vendoring)
+vendor/
+
+# ============================================================
+# Air (live-reload)
+# ============================================================
+tmp/
+.air.log
+
+# ============================================================
+# Docker / Compose
+# ============================================================
+# Local compose overrides with real secrets (use .override.yml pattern)
+docker-compose.local.yml
+
+# ============================================================
+# Editors & IDEs
+# ============================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ============================================================
+# OS
+# ============================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# ============================================================
+# pgAdmin (persisted server data written to disk)
+# ============================================================
+configs/pgadmin/pgadmin_data/
