@@ -24,5 +24,7 @@ func JSONResponse(w http.ResponseWriter, r *http.Request, status int, data any) 
 		w.Header().Set(traceIDHeader, traceID)
 	}
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		log.ErrorfWithContext(r.Context(), "render: encode response: %v", err)
+	}
 }

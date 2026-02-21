@@ -10,7 +10,7 @@ import (
 )
 
 func SeedSuperAdmin(cfg *Config) error {
-	db, err := sql.Open("postgres", buildDSN(cfg.DB))
+	db, err := sql.Open(SQLDriver, buildDSN(cfg.DB))
 	if err != nil {
 		return fmt.Errorf("open db for seeding: %w", err)
 	}
@@ -40,7 +40,7 @@ func SeedSuperAdmin(cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("begin seed transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() // no-op after Commit; intentionally unhandled (sql.ErrTxDone is expected)
 
 	var userID string
 	if err := tx.QueryRow(`

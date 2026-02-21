@@ -2,6 +2,11 @@ server:
   host: "0.0.0.0"
   port: "8080"
   max_request_body_bytes: 1048576  # 1 MiB
+  shutdown_timeout_sec: 5
+  read_timeout_sec: 10
+  write_timeout_sec: 30
+  idle_timeout_sec: 60
+  read_header_timeout_sec: 5
 
 db:
   pool:
@@ -13,6 +18,12 @@ db:
 cors:
   allowed_origins:
     - "http://localhost:3000"
+    # - "https://staging.yourdomain.com"   # uncomment for staging
+    # - "https://app.yourdomain.com"       # uncomment for production
 
 rate_limit:
-  auth_rpm: 10  # requests per minute per IP on auth endpoints
+  auth_rpm: 10   # requests per minute per IP on auth endpoints
+  user_rpm: 120  # requests per minute per user ID on authenticated endpoints
+
+cleanup:
+  token_cleanup_hours: 6  # how often to purge expired/revoked refresh tokens

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"github.com/sourcegraph/conc/pool"
 
@@ -25,10 +26,12 @@ func run() error {
 	ctx, cancel := app.NewRootContext()
 	defer cancel()
 
+	app.StartTokenCleanup(ctx, db, cfg.Cleanup.TokenCleanupHours)
+
 	p := pool.New().WithErrors().WithContext(ctx)
 
 	p.Go(func(ctx context.Context) error {
-		return app.StartServer(ctx, app.NewServer(cfg, db))
+		return app.StartServer(ctx, app.NewServer(cfg, db), time.Duration(cfg.Server.ShutdownTimeoutSec)*time.Second)
 	})
 
 	return p.Wait()

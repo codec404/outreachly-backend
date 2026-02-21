@@ -1,6 +1,11 @@
 package app
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/codec404/chat-service/pkg/appconfig"
+	log "github.com/codec404/chat-service/pkg/logger"
+)
 
 type Config struct {
 	Server     ServerConfig
@@ -8,13 +13,19 @@ type Config struct {
 	JWT        JWTConfig
 	CORS       CORSConfig
 	RateLimit  RateLimitConfig
+	Cleanup    CleanupConfig
 	SuperAdmin SuperAdminConfig
 }
 
 type ServerConfig struct {
-	Host                string `mapstructure:"host"`
-	Port                string `mapstructure:"port"`
-	MaxRequestBodyBytes int64  `mapstructure:"max_request_body_bytes"`
+	Host                 string `mapstructure:"host"`
+	Port                 string `mapstructure:"port"`
+	MaxRequestBodyBytes  int64  `mapstructure:"max_request_body_bytes"`
+	ShutdownTimeoutSec   int    `mapstructure:"shutdown_timeout_sec"`
+	ReadTimeoutSec       int    `mapstructure:"read_timeout_sec"`
+	WriteTimeoutSec      int    `mapstructure:"write_timeout_sec"`
+	IdleTimeoutSec       int    `mapstructure:"idle_timeout_sec"`
+	ReadHeaderTimeoutSec int    `mapstructure:"read_header_timeout_sec"`
 }
 
 type DBConfig struct {
@@ -23,6 +34,7 @@ type DBConfig struct {
 	Name     string
 	User     string
 	Password string
+	SSLMode  string
 	Pool     DBPoolConfig
 }
 
@@ -45,6 +57,11 @@ type CORSConfig struct {
 
 type RateLimitConfig struct {
 	AuthRPM int `mapstructure:"auth_rpm"`
+	UserRPM int `mapstructure:"user_rpm"`
+}
+
+type CleanupConfig struct {
+	TokenCleanupHours int `mapstructure:"token_cleanup_hours"`
 }
 
 type SuperAdminConfig struct {
@@ -54,27 +71,32 @@ type SuperAdminConfig struct {
 }
 
 func Load() (*Config, error) {
-	if err := readConfigFile(ConfigFileName, ConfigFileType, ConfigFilePath); err != nil {
+	if err := appconfig.Init(ConfigFileName, ConfigFileType, ConfigFilePath); err != nil {
 		return nil, err
 	}
 
 	var server ServerConfig
-	if err := unmarshalConfigKey(ViperKeyServer, &server); err != nil {
+	if err := appconfig.UnmarshalKey(ViperKeyServer, &server); err != nil {
 		return nil, err
 	}
 
 	var dbPool DBPoolConfig
-	if err := unmarshalConfigKey(ViperKeyDB+".pool", &dbPool); err != nil {
+	if err := appconfig.UnmarshalKey(ViperKeyDB+".pool", &dbPool); err != nil {
 		return nil, err
 	}
 
 	var cors CORSConfig
-	if err := unmarshalConfigKey(ViperKeyCORS, &cors); err != nil {
+	if err := appconfig.UnmarshalKey(ViperKeyCORS, &cors); err != nil {
 		return nil, err
 	}
 
 	var rateLimit RateLimitConfig
-	if err := unmarshalConfigKey(ViperKeyRateLimit, &rateLimit); err != nil {
+	if err := appconfig.UnmarshalKey(ViperKeyRateLimit, &rateLimit); err != nil {
+		return nil, err
+	}
+
+	var cleanup CleanupConfig
+	if err := appconfig.UnmarshalKey(ViperKeyCleanup, &cleanup); err != nil {
 		return nil, err
 	}
 
@@ -84,6 +106,7 @@ func Load() (*Config, error) {
 		Name:     getEnv(EnvDBName),
 		User:     getEnv(EnvDBUser),
 		Password: getEnv(EnvDBPassword),
+		SSLMode:  getEnvWithDefault(EnvDBSSLMode, "disable"),
 		Pool:     dbPool,
 	}
 
@@ -105,6 +128,7 @@ func Load() (*Config, error) {
 		JWT:        jwt,
 		CORS:       cors,
 		RateLimit:  rateLimit,
+		Cleanup:    cleanup,
 		SuperAdmin: superAdmin,
 	}, nil
 }
@@ -125,6 +149,15 @@ func (c *Config) Validate() error {
 		if r.val == "" {
 			return fmt.Errorf("missing required env var: %s", r.key)
 		}
+	}
+	if len(c.JWT.Secret) < 32 {
+		return fmt.Errorf("%s must be at least 32 characters (got %d)", EnvJWTSecret, len(c.JWT.Secret))
+	}
+	if c.Server.MaxRequestBodyBytes <= 0 {
+		return fmt.Errorf("server.max_request_body_bytes must be a positive value")
+	}
+	if isProduction() && c.DB.SSLMode == "disable" {
+		log.Warnf("SECURITY WARNING: DB_SSL_MODE=disable in production — database connections are not encrypted")
 	}
 	return nil
 }

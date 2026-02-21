@@ -1,6 +1,8 @@
 package router
 
 import (
+	"time"
+
 	"github.com/go-chi/chi/v5"
 
 	"github.com/codec404/chat-service/controller/admin"
@@ -30,6 +32,7 @@ func GetAllRoutes(r chi.Router, cfg Config) {
 		// Authenticated routes — JWT required for everything below.
 		r.Group(func(r chi.Router) {
 			r.Use(authenticate)
+			r.Use(middleware.RateLimitByUserID(cfg.UserRPM, time.Minute))
 
 			registerUserRoutes(r, user.NewHandler())
 			registerTemplateRoutes(r, templatectl.NewHandler())

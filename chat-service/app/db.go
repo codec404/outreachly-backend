@@ -11,8 +11,8 @@ import (
 // OpenDB creates a pgxpool connection with the settings from config.yml and
 // verifies connectivity with a ping.
 func OpenDB(cfg *Config) (*pgxpool.Pool, error) {
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.Name)
+	dsn := fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=%s",
+		SQLDriver, cfg.DB.User, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.Name, cfg.DB.SSLMode)
 
 	poolCfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {

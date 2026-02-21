@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -35,15 +38,16 @@ func NewServer(cfg *Config, db *pgxpool.Pool) *http.Server {
 		AccessExpiryMin:  cfg.JWT.AccessExpiry,
 		RefreshExpiryDay: cfg.JWT.RefreshExpiry,
 		AuthRPM:          cfg.RateLimit.AuthRPM,
+		UserRPM:          cfg.RateLimit.UserRPM,
 	})
 
 	return &http.Server{
 		Addr:              fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port),
 		Handler:           r,
-		ReadTimeout:       ReadTimeout * time.Second,
-		WriteTimeout:      WriteTimeout * time.Second,
-		IdleTimeout:       IdleTimeout * time.Second,
-		ReadHeaderTimeout: ReadHeaderTimeout * time.Second,
+		ReadTimeout:       time.Duration(cfg.Server.ReadTimeoutSec) * time.Second,
+		WriteTimeout:      time.Duration(cfg.Server.WriteTimeoutSec) * time.Second,
+		IdleTimeout:       time.Duration(cfg.Server.IdleTimeoutSec) * time.Second,
+		ReadHeaderTimeout: time.Duration(cfg.Server.ReadHeaderTimeoutSec) * time.Second,
 	}
 }
 
@@ -58,7 +62,7 @@ func buildCORSOptions(cfg CORSConfig) cors.Options {
 	}
 }
 
-func StartServer(ctx context.Context, srv *http.Server) error {
+func StartServer(ctx context.Context, srv *http.Server, shutdownTimeout time.Duration) error {
 	errCh := make(chan error, 1)
 
 	go func() {
@@ -72,7 +76,7 @@ func StartServer(ctx context.Context, srv *http.Server) error {
 	case err := <-errCh:
 		return err
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
 	}
@@ -107,4 +111,9 @@ func jsonRecoverer(next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(w, r)
 	})
+}
+
+// NewRootContext returns a context that is cancelled on SIGINT or SIGTERM.
+func NewRootContext() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }

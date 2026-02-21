@@ -43,5 +43,7 @@ func write(w http.ResponseWriter, r *http.Request, code int, message string) {
 		w.Header().Set(traceIDHeader, traceID)
 	}
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(errorResponse{Code: code, Message: message})
+	if err := json.NewEncoder(w).Encode(errorResponse{Code: code, Message: message}); err != nil {
+		log.ErrorfWithContext(r.Context(), "errorhandler: encode error response: %v", err)
+	}
 }

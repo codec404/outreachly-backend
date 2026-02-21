@@ -109,6 +109,7 @@ func (p *Postgres) GetRoles(ctx context.Context, userID string) ([]string, error
 		}
 		roles = append(roles, role)
 	}
+	// rows.Err() is nil on an empty result set; pgx only sets it on iteration failure.
 	return roles, rows.Err()
 }
 

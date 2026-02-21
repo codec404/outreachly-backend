@@ -47,6 +47,10 @@ func Authenticate(secret string) func(http.Handler) http.Handler {
 				errorhandler.Respond(w, r, externalerror.Unauthorized("invalid or expired token"))
 				return
 			}
+			if c.Subject == "" {
+				errorhandler.Respond(w, r, externalerror.Unauthorized("invalid token claims"))
+				return
+			}
 
 			ctx := SetUserContext(r.Context(), c.Subject, c.Email, c.Roles)
 			next.ServeHTTP(w, r.WithContext(ctx))

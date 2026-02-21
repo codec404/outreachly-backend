@@ -9,4 +9,5 @@ type Config struct {
 	AccessExpiryMin  int
 	RefreshExpiryDay int
 	AuthRPM          int // rate limit: requests per minute per IP on auth endpoints
+	UserRPM          int // rate limit: requests per minute per user ID on authenticated endpoints
 }

@@ -17,13 +17,6 @@ const (
 	AppEnvProduction = "production"
 	LocalEnvFile     = "local.env"
 
-	// Server
-	ShutdownTimeout   = 5  // seconds
-	ReadTimeout       = 10 // seconds
-	WriteTimeout      = 30 // seconds
-	IdleTimeout       = 60 // seconds
-	ReadHeaderTimeout = 5  // seconds
-
 	// DB env var keys
 	EnvDBHost     = "DB_HOST"
 	EnvDBPort     = "DB_PORT"
@@ -40,4 +33,16 @@ const (
 	EnvJWTSecret        = "JWT_SECRET"
 	EnvJWTAccessExpiry  = "JWT_ACCESS_EXPIRY_MINUTES"
 	EnvJWTRefreshExpiry = "JWT_REFRESH_EXPIRY_DAYS"
+
+	// DB extras
+	EnvDBSSLMode = "DB_SSL_MODE" // "disable" | "require" | "verify-full"
+
+	// Viper key for cleanup config
+	ViperKeyCleanup = "cleanup"
+
+	// SQL driver name
+	SQLDriver = "postgres"
+
+	// Token Cleanup Goroutine
+	TokenCleanupGoroutineName = "token-cleanup"
 )

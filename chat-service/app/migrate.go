@@ -15,7 +15,7 @@ import (
 )
 
 func RunMigrations(cfg *Config) error {
-	db, err := sql.Open("postgres", buildDSN(cfg.DB))
+	db, err := sql.Open(SQLDriver, buildDSN(cfg.DB))
 	if err != nil {
 		return fmt.Errorf("open db for migrations: %w", err)
 	}
@@ -50,7 +50,7 @@ func RunMigrations(cfg *Config) error {
 
 func buildDSN(db DBConfig) string {
 	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		db.User, db.Password, db.Host, db.Port, db.Name,
+		"%s://%s:%s@%s:%s/%s?sslmode=%s",
+		SQLDriver, db.User, db.Password, db.Host, db.Port, db.Name, db.SSLMode,
 	)
 }
