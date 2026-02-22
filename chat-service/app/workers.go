@@ -18,6 +18,17 @@ var workerFuncs = map[string]func(context.Context){
 	BulkUploadWorker: worker.StartBulkUploadWorker,
 }
 
+// RunWorkerFromEnv reads RUN_MODE from the environment and starts the named
+// worker if set. Returns (false, nil) when RUN_MODE is absent or "server",
+// so the caller can fall through to server startup.
+func RunWorkerFromEnv(ctx context.Context) (ran bool, err error) {
+	name := getEnv(RunModeKey)
+	if name == "" || name == RunModeServer {
+		return false, nil
+	}
+	return true, RunWorker(ctx, name)
+}
+
 // RunWorker starts the named worker and blocks until ctx is cancelled.
 // Returns an error immediately if the name is not registered — this surfaces
 // misconfigured ECS task definitions / docker-compose env vars at startup.
