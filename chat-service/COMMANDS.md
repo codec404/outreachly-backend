@@ -125,6 +125,7 @@ Tail logs from a specific service.
 make logs-postgres
 make logs-chat-service
 make logs-pgadmin
+make logs-bulk-upload-worker
 ```
 
 ---

@@ -26,6 +26,23 @@ services:
     environment:
       APP_ENV: production
       DB_HOST: postgres
+      RUN_MODE: server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  bulk-upload-worker:
+    container_name: bulk-upload-worker
+    build:
+      context: .
+      target: prod
+    env_file:
+      - local.env
+    environment:
+      APP_ENV: production
+      DB_HOST: postgres
+      RUN_MODE: bulk-upload-worker
     depends_on:
       postgres:
         condition: service_healthy

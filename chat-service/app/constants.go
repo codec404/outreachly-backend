@@ -17,6 +17,11 @@ const (
 	AppEnvProduction = "production"
 	LocalEnvFile     = "local.env"
 
+	// Run mode — controls what this process does.
+	// Set via RUN_MODE env var in docker-compose / ECS task definition.
+	RunModeKey    = "RUN_MODE"
+	RunModeServer = "server" // default: runs the HTTP server only
+
 	// DB env var keys
 	EnvDBHost     = "DB_HOST"
 	EnvDBPort     = "DB_PORT"

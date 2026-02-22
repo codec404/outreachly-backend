@@ -28,4 +28,17 @@ services:
     environment:
       APP_ENV: development
       DB_HOST: postgres
+      RUN_MODE: server
+    restart: "no"
+
+  bulk-upload-worker:
+    container_name: bulk-upload-worker
+    build:
+      target: dev
+    volumes:
+      - .:/app
+    environment:
+      APP_ENV: development
+      DB_HOST: postgres
+      RUN_MODE: bulk-upload-worker
     restart: "no"

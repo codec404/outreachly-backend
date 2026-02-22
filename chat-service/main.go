@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/sourcegraph/conc/pool"
@@ -25,6 +26,10 @@ func run() error {
 
 	ctx, cancel := app.NewRootContext()
 	defer cancel()
+
+	if runMode := os.Getenv(app.RunModeKey); runMode != "" && runMode != app.RunModeServer {
+		return app.RunWorker(ctx, runMode)
+	}
 
 	app.StartTokenCleanup(ctx, db, cfg.Cleanup.TokenCleanupHours)
 
