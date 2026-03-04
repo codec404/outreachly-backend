@@ -24,10 +24,10 @@ func NewPostgres(db *pgxpool.Pool) *Postgres {
 func (p *Postgres) FindByEmail(ctx context.Context, email string) (*model.User, error) {
 	u := &model.User{}
 	err := p.db.QueryRow(ctx, `
-		SELECT id, name, email, password_hash, is_active, is_blocked, created_at, updated_at
+		SELECT id, name, email, password_hash, avatar_url, is_active, is_blocked, created_at, updated_at
 		FROM users
 		WHERE email = $1 AND deleted_at IS NULL
-	`, email).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.IsActive, &u.IsBlocked, &u.CreatedAt, &u.UpdatedAt)
+	`, email).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.AvatarURL, &u.IsActive, &u.IsBlocked, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, externalerror.NotFound("user not found")
@@ -40,10 +40,10 @@ func (p *Postgres) FindByEmail(ctx context.Context, email string) (*model.User, 
 func (p *Postgres) FindByID(ctx context.Context, id string) (*model.User, error) {
 	u := &model.User{}
 	err := p.db.QueryRow(ctx, `
-		SELECT id, name, email, password_hash, is_active, is_blocked, created_at, updated_at
+		SELECT id, name, email, password_hash, avatar_url, is_active, is_blocked, created_at, updated_at
 		FROM users
 		WHERE id = $1 AND deleted_at IS NULL
-	`, id).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.IsActive, &u.IsBlocked, &u.CreatedAt, &u.UpdatedAt)
+	`, id).Scan(&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.AvatarURL, &u.IsActive, &u.IsBlocked, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, externalerror.NotFound("user not found")
@@ -64,9 +64,9 @@ func (p *Postgres) CreateWithRole(ctx context.Context, name, email, passwordHash
 	err = tx.QueryRow(ctx, `
 		INSERT INTO users (name, email, password_hash)
 		VALUES ($1, $2, $3)
-		RETURNING id, name, email, password_hash, is_active, is_blocked, created_at, updated_at
+		RETURNING id, name, email, password_hash, avatar_url, is_active, is_blocked, created_at, updated_at
 	`, name, email, passwordHash).Scan(
-		&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.IsActive, &u.IsBlocked, &u.CreatedAt, &u.UpdatedAt,
+		&u.ID, &u.Name, &u.Email, &u.PasswordHash, &u.AvatarURL, &u.IsActive, &u.IsBlocked, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		if isDuplicateError(err) {
@@ -111,6 +111,16 @@ func (p *Postgres) GetRoles(ctx context.Context, userID string) ([]string, error
 	}
 	// rows.Err() is nil on an empty result set; pgx only sets it on iteration failure.
 	return roles, rows.Err()
+}
+
+func (p *Postgres) UpdateAvatarURL(ctx context.Context, userID, avatarURL string) error {
+	_, err := p.db.Exec(ctx, `
+		UPDATE users SET avatar_url = $1 WHERE id = $2 AND deleted_at IS NULL
+	`, avatarURL, userID)
+	if err != nil {
+		return fmt.Errorf("userrepo.UpdateAvatarURL: %w", err)
+	}
+	return nil
 }
 
 func isDuplicateError(err error) bool {

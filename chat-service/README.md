@@ -12,7 +12,7 @@ The primary backend service for Outreachly. Handles authentication, user managem
 | HTTP router   | [chi v5](https://github.com/go-chi/chi)                   |
 | Database      | PostgreSQL 17                                             |
 | DB driver     | pgx/v5 (queries) · lib/pq (migrations)                   |
-| Auth          | JWT HS256 access tokens + stateful refresh tokens         |
+| Auth          | JWT HS256 access tokens + stateful refresh tokens + Google OAuth 2.0 |
 | Migrations    | golang-migrate (embedded in binary, runs on startup)      |
 | Live reload   | [Air](https://github.com/air-verse/air)                   |
 | Logging       | Uber Zap (JSON in prod · coloured console in dev)         |
@@ -70,7 +70,8 @@ chat-service/
 │   └── auth/
 ├── repository/        # data access interfaces + postgres implementations
 │   ├── user/
-│   └── token/
+│   ├── token/
+│   └── oauth/
 ├── model/             # plain Go structs (no ORM tags)
 ├── dto/               # request / response shapes
 │   └── auth/
@@ -91,19 +92,20 @@ chat-service/
 
 ## Database schema
 
-| Table              | Purpose                                        |
-|--------------------|------------------------------------------------|
-| `users`            | Accounts with soft delete and `is_blocked`     |
-| `roles`            | `user`, `admin`, `super_admin`                 |
-| `permissions`      | Fine-grained permission strings                |
-| `user_roles`       | Many-to-many users ↔ roles                    |
-| `role_permissions` | Many-to-many roles ↔ permissions              |
-| `refresh_tokens`   | Stateful refresh tokens (SHA-256 hash stored)  |
-| `templates`        | Email templates (body or S3 URL)               |
-| `recruiters`       | Recruiter profiles linked to users             |
-| `campaigns`        | Outreach campaigns with status lifecycle       |
-| `campaign_targets` | Individual targets within a campaign           |
-| `email_events`     | Delivery/open/click events with JSONB metadata |
+| Table              | Purpose                                                                 |
+|--------------------|-------------------------------------------------------------------------|
+| `users`            | Accounts with soft delete, `is_blocked`, and `avatar_url`               |
+| `oauth_providers`  | Linked OAuth identities (provider + provider_user_id → local user)      |
+| `roles`            | `user`, `admin`, `super_admin`                                          |
+| `permissions`      | Fine-grained permission strings                                         |
+| `user_roles`       | Many-to-many users ↔ roles                                             |
+| `role_permissions` | Many-to-many roles ↔ permissions                                       |
+| `refresh_tokens`   | Stateful refresh tokens (SHA-256 hash stored)                           |
+| `templates`        | Email templates (body or S3 URL)                                        |
+| `recruiters`       | Recruiter profiles linked to users                                      |
+| `campaigns`        | Outreach campaigns with status lifecycle                                |
+| `campaign_targets` | Individual targets within a campaign                                    |
+| `email_events`     | Delivery/open/click events with JSONB metadata                          |
 
 All tables have `created_at` and `updated_at` (`TIMESTAMPTZ`), maintained by a shared PL/pgSQL trigger. Migrations are embedded in the binary and applied automatically at startup.
 
@@ -111,12 +113,32 @@ All tables have `created_at` and `updated_at` (`TIMESTAMPTZ`), maintained by a s
 
 ## Authentication
 
+### Email / password
+
 | Flow     | Endpoint                     | Description                            |
 |----------|------------------------------|----------------------------------------|
 | Register | `POST /api/v1/auth/register` | Creates account with `user` role       |
 | Login    | `POST /api/v1/auth/login`    | Returns access + refresh token pair    |
 | Refresh  | `POST /api/v1/auth/refresh`  | Rotates refresh token, issues new pair |
 | Logout   | `POST /api/v1/auth/logout`   | Revokes the supplied refresh token     |
+
+### Google OAuth 2.0
+
+| Flow     | Endpoint                            | Description                                                  |
+|----------|-------------------------------------|--------------------------------------------------------------|
+| Initiate | `GET /api/v1/auth/google`           | Redirects browser to Google consent page                     |
+| Callback | `GET /api/v1/auth/google/callback`  | Exchanges code, logs in or creates user, returns token pair  |
+
+**How it works:**
+1. Browser hits `GET /auth/google` → server redirects to Google with a CSRF state cookie.
+2. User consents → Google redirects to `/auth/google/callback?code=...&state=...`.
+3. Server validates the state cookie, exchanges the code for a Google access token, fetches user info, then:
+   - If the Google account is already linked → logs in that user.
+   - If a local account exists with the same email → links the Google identity to it.
+   - Otherwise → creates a new `user`-role account and links it.
+4. Returns the same `{ access_token, refresh_token, expires_in }` response as email/password login.
+
+OAuth identities are stored in the `oauth_providers` table. A user's `avatar_url` is populated from Google only if no avatar is already set — existing avatars are never overwritten by OAuth logins.
 
 **Access token** — HS256 JWT, 15 min TTL by default. Claims: `sub` (user ID), `email`, `roles`.
 
@@ -141,6 +163,8 @@ POST /auth/register
 POST /auth/login
 POST /auth/refresh
 POST /auth/logout
+GET  /auth/google
+GET  /auth/google/callback
 ```
 
 **Authenticated** (`Authorization: Bearer <token>` required)
@@ -221,6 +245,9 @@ Copy `local.env.example` to `local.env` and fill in the values.
 | `SUPER_ADMIN_NAME`          | yes      | —        | Default super admin display name                                   |
 | `SUPER_ADMIN_EMAIL`         | yes      | —        | Default super admin email                                          |
 | `SUPER_ADMIN_PASSWORD`      | yes      | —        | Default super admin password (min 8)                               |
+| `GOOGLE_CLIENT_ID`          | no       | —        | OAuth 2.0 client ID from Google Cloud Console                      |
+| `GOOGLE_CLIENT_SECRET`      | no       | —        | OAuth 2.0 client secret from Google Cloud Console                  |
+| `GOOGLE_REDIRECT_URL`       | no       | —        | Must exactly match a URI registered in Google Cloud Console        |
 | `APP_ENV`                   | no       | —        | Set to `production` to enable prod mode                            |
 | `RUN_MODE`                  | no       | `server` | `server` starts the HTTP server; a worker name starts that worker  |
 
@@ -317,6 +344,8 @@ The map key is the exact `RUN_MODE` value used in docker-compose / ECS task defi
 
 - **Migrations** run automatically at startup via embedded SQL files (`go:embed`). No CLI dependency required.
 - **Super admin** is seeded on first boot. The seed is idempotent — safe to restart.
+- **Google OAuth** — `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URL` are optional at startup. If unset, the `/auth/google` routes return an error at call time. Register credentials at [console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials).
+- **OAuth avatar policy** — `avatar_url` on the `users` table is populated from Google only if the field is currently empty. Manually set avatars are never overwritten.
 - **Logs** are structured JSON in production, coloured console in dev. Every log line carries `trace_id` when available.
 - **Panic recovery** — HTTP panics are caught by `jsonRecoverer`, logged with the trace ID, and returned as `500 Internal Server Error`. Worker panics are caught by `SafeGo` and logged; the worker goroutine exits but the process stays alive.
 - **Graceful shutdown** — `SIGINT`/`SIGTERM` cancels the root context. The HTTP server drains in-flight requests; workers unblock from their poll loop and exit cleanly.

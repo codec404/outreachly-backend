@@ -11,4 +11,5 @@ type Repository interface {
 	FindByID(ctx context.Context, id string) (*model.User, error)
 	CreateWithRole(ctx context.Context, name, email, passwordHash, roleName string) (*model.User, error)
 	GetRoles(ctx context.Context, userID string) ([]string, error)
+	UpdateAvatarURL(ctx context.Context, userID, avatarURL string) error
 }

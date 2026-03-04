@@ -15,6 +15,7 @@ type Config struct {
 	RateLimit  RateLimitConfig
 	Cleanup    CleanupConfig
 	SuperAdmin SuperAdminConfig
+	OAuth      OAuthConfig
 }
 
 type ServerConfig struct {
@@ -70,6 +71,13 @@ type SuperAdminConfig struct {
 	Password string
 }
 
+type OAuthConfig struct {
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
+	StateCookieMaxAge  int // seconds; how long the CSRF state cookie lives
+}
+
 func Load() (*Config, error) {
 	if err := appconfig.Init(ConfigFileName, ConfigFileType, ConfigFilePath); err != nil {
 		return nil, err
@@ -122,6 +130,19 @@ func Load() (*Config, error) {
 		Password: getEnv(EnvSuperAdminPassword),
 	}
 
+	var oauthYAML struct {
+		StateCookieMaxAge int `mapstructure:"state_cookie_max_age_sec"`
+	}
+	if err := appconfig.UnmarshalKey(ViperKeyOAuth, &oauthYAML); err != nil {
+		return nil, err
+	}
+	oauth := OAuthConfig{
+		GoogleClientID:     getEnv(EnvGoogleClientID),
+		GoogleClientSecret: getEnv(EnvGoogleClientSecret),
+		GoogleRedirectURL:  getEnv(EnvGoogleRedirectURL),
+		StateCookieMaxAge:  oauthYAML.StateCookieMaxAge,
+	}
+
 	return &Config{
 		Server:     server,
 		DB:         db,
@@ -130,6 +151,7 @@ func Load() (*Config, error) {
 		RateLimit:  rateLimit,
 		Cleanup:    cleanup,
 		SuperAdmin: superAdmin,
+		OAuth:      oauth,
 	}, nil
 }
 

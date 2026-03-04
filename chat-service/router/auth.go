@@ -19,5 +19,9 @@ func registerAuthRoutes(r chi.Router, h *auth.Handler, authRPM int) {
 		r.Post("/login", h.Login)
 		r.Post("/refresh", h.Refresh)
 		r.Post("/logout", h.Logout)
+
+		// Google OAuth — browser redirects, not JSON API calls.
+		r.Get("/google", h.GoogleLogin)
+		r.Get("/google/callback", h.GoogleCallback)
 	})
 }

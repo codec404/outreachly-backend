@@ -7,6 +7,7 @@ type User struct {
 	Name         string
 	Email        string
 	PasswordHash string
+	AvatarURL    string
 	IsActive     bool
 	IsBlocked    bool
 	CreatedAt    time.Time

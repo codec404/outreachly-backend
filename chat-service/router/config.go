@@ -10,4 +10,11 @@ type Config struct {
 	RefreshExpiryDay int
 	AuthRPM          int // rate limit: requests per minute per IP on auth endpoints
 	UserRPM          int // rate limit: requests per minute per user ID on authenticated endpoints
+
+	// Google OAuth
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
+	SecureCookies      bool // set true in production (Secure flag on cookies)
+	StateCookieMaxAge  int  // seconds the CSRF state cookie lives
 }

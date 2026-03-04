@@ -27,3 +27,7 @@ rate_limit:
 
 cleanup:
   token_cleanup_hours: 6  # how often to purge expired/revoked refresh tokens
+
+oauth:
+  # Secrets (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URL) are loaded from env vars.
+  state_cookie_max_age_sec: 300  # how long the CSRF state cookie lives (5 minutes)

@@ -50,4 +50,15 @@ const (
 
 	// Token Cleanup Goroutine
 	TokenCleanupGoroutineName = "token-cleanup"
+
+	// Google OAuth env var keys
+	EnvGoogleClientID     = "GOOGLE_CLIENT_ID"
+	EnvGoogleClientSecret = "GOOGLE_CLIENT_SECRET"
+	EnvGoogleRedirectURL  = "GOOGLE_REDIRECT_URL"
+
+	// OAuth state cookie name
+	OAuthStateCookieName = "oauth_state"
+
+	// Viper key for oauth config
+	ViperKeyOAuth = "oauth"
 )

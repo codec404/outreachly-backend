@@ -7,11 +7,13 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/oauth2"
 
 	authdto "github.com/codec404/chat-service/dto/auth"
 	"github.com/codec404/chat-service/model"
 	externalerror "github.com/codec404/chat-service/pkg/external_error"
 	log "github.com/codec404/chat-service/pkg/logger"
+	oauthrepo "github.com/codec404/chat-service/repository/oauth"
 	tokenrepo "github.com/codec404/chat-service/repository/token"
 	userrepo "github.com/codec404/chat-service/repository/user"
 	"github.com/codec404/chat-service/utils"
@@ -20,6 +22,8 @@ import (
 type service struct {
 	userRepo         userrepo.Repository
 	tokenRepo        tokenrepo.Repository
+	oauthRepo        oauthrepo.Repository
+	oauth2Config     *oauth2.Config
 	jwtSecret        []byte
 	accessExpiryMin  int
 	refreshExpiryDay int
@@ -28,6 +32,8 @@ type service struct {
 func New(
 	userRepo userrepo.Repository,
 	tokenRepo tokenrepo.Repository,
+	oauthRepo oauthrepo.Repository,
+	oauth2Config *oauth2.Config,
 	jwtSecret string,
 	accessExpiryMin int,
 	refreshExpiryDay int,
@@ -35,6 +41,8 @@ func New(
 	return &service{
 		userRepo:         userRepo,
 		tokenRepo:        tokenRepo,
+		oauthRepo:        oauthRepo,
+		oauth2Config:     oauth2Config,
 		jwtSecret:        []byte(jwtSecret),
 		accessExpiryMin:  accessExpiryMin,
 		refreshExpiryDay: refreshExpiryDay,
@@ -155,6 +163,76 @@ func (s *service) Logout(ctx context.Context, refreshToken string) error {
 	return nil
 }
 
+// LoginOrRegisterWithGoogle either logs in an existing Google-linked user,
+// links a Google account to an existing local user with the same email,
+// or creates a brand-new user — then issues tokens.
+func (s *service) LoginOrRegisterWithGoogle(ctx context.Context, info GoogleUserInfo) (*authdto.AuthResponse, error) {
+	// 1. Check if this Google account is already linked to a local user.
+	existing, err := s.oauthRepo.FindByProvider(ctx, "google", info.Sub)
+	if err == nil {
+		user, err := s.userRepo.FindByID(ctx, existing.UserID)
+		if err != nil {
+			return nil, err
+		}
+		if user.IsBlocked {
+			log.WarnfWithContext(ctx, "audit: google login denied user_id=%s reason=blocked", user.ID)
+			return nil, externalerror.Forbidden("account is blocked")
+		}
+		if info.AvatarURL != "" && user.AvatarURL == "" {
+			_ = s.userRepo.UpdateAvatarURL(ctx, user.ID, info.AvatarURL)
+		}
+		roles, err := s.userRepo.GetRoles(ctx, user.ID)
+		if err != nil {
+			return nil, err
+		}
+		log.InfofWithContext(ctx, "audit: google login success user_id=%s", user.ID)
+		return s.issueTokens(ctx, user, roles)
+	}
+
+	// 2. No existing link — find or create a local user by email.
+	user, err := s.userRepo.FindByEmail(ctx, info.Email)
+	if err != nil {
+		// No local user with this email — create one.
+		randomHash, err := generateRandomPasswordHash()
+		if err != nil {
+			return nil, fmt.Errorf("authsvc.LoginOrRegisterWithGoogle: %w", err)
+		}
+		user, err = s.userRepo.CreateWithRole(ctx, info.Name, info.Email, randomHash, "user")
+		if err != nil {
+			return nil, err
+		}
+		log.InfofWithContext(ctx, "audit: google register success user_id=%s", user.ID)
+	} else {
+		log.InfofWithContext(ctx, "audit: google linked to existing user user_id=%s", user.ID)
+	}
+
+	if user.IsBlocked {
+		return nil, externalerror.Forbidden("account is blocked")
+	}
+
+	if info.AvatarURL != "" && user.AvatarURL == "" {
+		_ = s.userRepo.UpdateAvatarURL(ctx, user.ID, info.AvatarURL)
+	}
+
+	// 3. Link the OAuth provider row to this user.
+	if _, err := s.oauthRepo.Create(ctx, oauthrepo.CreateParams{
+		UserID:         user.ID,
+		Provider:       "google",
+		ProviderUserID: info.Sub,
+		Email:          info.Email,
+		Name:           info.Name,
+		AvatarURL:      info.AvatarURL,
+	}); err != nil {
+		return nil, err
+	}
+
+	roles, err := s.userRepo.GetRoles(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	return s.issueTokens(ctx, user, roles)
+}
+
 // issueTokens mints a new JWT access token and a random refresh token.
 func (s *service) issueTokens(ctx context.Context, user *model.User, roles []string) (*authdto.AuthResponse, error) {
 	now := time.Now()
@@ -191,6 +269,20 @@ func (s *service) issueTokens(ctx context.Context, user *model.User, roles []str
 		RefreshToken: rawRefresh,
 		ExpiresIn:    s.accessExpiryMin * 60,
 	}, nil
+}
+
+// generateRandomPasswordHash creates a bcrypt hash of a random token.
+// Used for OAuth-only accounts that must satisfy the NOT NULL constraint on password_hash.
+func generateRandomPasswordHash() (string, error) {
+	raw, err := utils.GenerateToken()
+	if err != nil {
+		return "", err
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(raw), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
 }
 
 func validateRegister(req authdto.RegisterRequest) error {

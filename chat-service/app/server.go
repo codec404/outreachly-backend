@@ -39,6 +39,11 @@ func NewServer(cfg *Config, db *pgxpool.Pool) *http.Server {
 		RefreshExpiryDay: cfg.JWT.RefreshExpiry,
 		AuthRPM:          cfg.RateLimit.AuthRPM,
 		UserRPM:          cfg.RateLimit.UserRPM,
+		GoogleClientID:     cfg.OAuth.GoogleClientID,
+		GoogleClientSecret: cfg.OAuth.GoogleClientSecret,
+		GoogleRedirectURL:  cfg.OAuth.GoogleRedirectURL,
+		SecureCookies:      isProduction(),
+		StateCookieMaxAge:  cfg.OAuth.StateCookieMaxAge,
 	})
 
 	return &http.Server{
